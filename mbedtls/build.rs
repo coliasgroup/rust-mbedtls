@@ -43,7 +43,7 @@ fn main() {
     b.define("RUST_MBEDTLS_METADATA_HASH", Some(metadata_hash.as_str()));
     
     b.file("src/mbedtls_malloc.c");
-    if sys_platform_components.get("c_compiler").map_or(false, |comps| comps.contains("freestanding")) {
+    if sys_platform_components.get("c_compiler_component").map_or(false, |comps| comps.contains("freestanding")) {
         b.flag("-U_FORTIFY_SOURCE")
             .define("_FORTIFY_SOURCE", Some("0"))
             .flag("-ffreestanding");
