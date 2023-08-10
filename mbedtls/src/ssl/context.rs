@@ -205,8 +205,8 @@ unsafe fn set_bio_raw<IoType, T: IoCallbackUnsafe<IoType>>(ctx: *mut ssl_context
 /// Note: `bio` is a concept in common TLS implementation which refers to basic IO.
 /// openssl and mbedtls both use this concept.
 /// Ref: <https://stackoverflow.com/questions/51672133/what-are-openssl-bios-how-do-they-work-how-are-bios-used-in-openssl>
-#[cfg(all(feature = "std", feature = "async"))]
 impl<T> Context<T>  {
+    #[cfg(all(feature = "std", feature = "async"))]
     pub(super) fn with_bio_async<'cx, R, IoType>(&mut self, cx: &mut std::task::Context<'cx>, f: impl FnOnce(&mut Self) -> R) -> Option<R> where for<'c> (&'c mut std::task::Context<'cx>, &'c mut T): IoCallbackUnsafe<IoType> {
         let ret;
 
@@ -240,7 +240,7 @@ impl<T> Context<T>  {
     // Please check this https://github.com/Mbed-TLS/mbedtls/issues/4183 to learn more about how `mbedtls_ssl_write()` works in c-mbedtls 2.28
     // This function ultimately ensure the semantics:
     // Returned value `Ok(n)` always means n bytes of data has been sent into c-mbedtls's buffer (some of them might be sent out through underlying IO)
-    pub(super) fn async_write(&mut self, buf: &[u8]) -> Result<usize> {
+    pub fn async_write(&mut self, buf: &[u8]) -> Result<usize> {
         while self.handle().private_out_left > 0 {
             self.flush_output()?;
         }
@@ -249,7 +249,7 @@ impl<T> Context<T>  {
             // Although got `Error::SslWantWrite` means underlying IO is blocked, but some of `buf` is still saved into c-mbedtls's
             // buffer, so we need to return size of bytes that has been buffered.
             // Since we know before this call `out_left` was 0, all buffer (with in the MBEDTLS_SSL_OUT_CONTENT_LEN part) is buffered
-            Err(e) if e.high_level() == Some(codes::SslWantWrite) => Ok(std::cmp::min(unsafe { ssl_get_max_out_record_payload((&*self).into()).into_result()? as usize }, buf.len())),
+            Err(e) if e.high_level() == Some(codes::SslWantWrite) => Ok(core::cmp::min(unsafe { ssl_get_max_out_record_payload((&*self).into()).into_result()? as usize }, buf.len())),
             res => res,
         }
     }
@@ -262,17 +262,11 @@ impl<T> Context<T> {
     /// `std::io::Read` and `std::io::Write` traits if `io` implements those as
     /// well, and using the `mbedtls::ssl::io::Io` trait otherwise.
     pub fn establish<IoType>(&mut self, io: T, hostname: Option<&str>) -> Result<()> where T: IoCallbackUnsafe<IoType> {
-        // SAFETY: In the call to `set_bio_raw`, `self.io` must live as long as
-        // `self`, or until the bio is cleared from `ctx`. It lives as long as
-        // `self` since it is stored in self and never cleared.
-        unsafe {
-            self.prepare_handshake(io, hostname)?;
-            set_bio_raw(self.into(), &mut**self.io.as_mut().unwrap());
-        }
+        self.prepare_handshake(io, hostname)?;
         self.handshake()
     }
 
-    pub(super) fn prepare_handshake(&mut self, io: T, hostname: Option<&str>) -> Result<()> {
+    pub fn prepare_handshake<IoType>(&mut self, io: T, hostname: Option<&str>) -> Result<()> where T: IoCallbackUnsafe<IoType> {
         unsafe {
             ssl_session_reset(self.into()).into_result()?;
             self.set_hostname(hostname)?;
@@ -281,6 +275,10 @@ impl<T> Context<T> {
             }
             self.io = Some(Box::new(io));
             self.inner.reset_handshake();
+            // SAFETY: In the call to `set_bio_raw`, `self.io` must live as long as
+            // `self`, or until the bio is cleared from `ctx`. It lives as long as
+            // `self` since it is stored in self and never cleared.
+            set_bio_raw(self.into(), &mut**self.io.as_mut().unwrap());
             Ok(())
         }
     }
@@ -333,7 +331,7 @@ impl<T> Context<T> {
         }
     }
 
-    pub(super) fn flush_output(&mut self) -> Result<()> {
+    pub fn flush_output(&mut self) -> Result<()> {
         unsafe {
             // non-negative return value just means `ssl_flush_output` is succeed
             ssl_flush_output(self.into()).into_result_discard()
@@ -373,7 +371,7 @@ impl<T> Context<T> {
         &self.config
     }
 
-    pub(super) fn close_notify(&mut self) -> Result<()> {
+    pub fn close_notify(&mut self) -> Result<()> {
         unsafe {
             ssl_close_notify(self.into()).into_result().map(|_| ())
         }
@@ -393,7 +391,7 @@ impl<T> Context<T> {
         }
     }
     
-    pub(super) fn drop_io(&mut self) {
+    pub fn drop_io(&mut self) {
         self.clear_bio();
         self.io = None;
     }
