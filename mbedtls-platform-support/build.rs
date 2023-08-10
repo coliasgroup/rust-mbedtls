@@ -26,7 +26,7 @@ fn main() {
              Some(config_file.as_str()));
 
     b.file("src/rust_printf.c");
-    if sys_platform_components.get("c_compiler").map_or(false, |comps| comps.contains("freestanding")) {
+    if sys_platform_components.get("c_compiler_component").map_or(false, |comps| comps.contains("freestanding")) {
         b.flag("-U_FORTIFY_SOURCE")
             .define("_FORTIFY_SOURCE", Some("0"))
             .flag("-ffreestanding");
