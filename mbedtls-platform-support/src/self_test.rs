@@ -47,7 +47,7 @@ cfg_if::cfg_if! {
 
         // needs to be pub for global visiblity
         #[doc(hidden)]
-        #[no_mangle]
+        // #[no_mangle]
         pub unsafe extern "C" fn rand() -> c_int {
             rand_f.expect("Called self-test rand without enabling self-test")()
         }
