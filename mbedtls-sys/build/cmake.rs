@@ -8,6 +8,8 @@
 
 use cmake;
 
+use crate::features::{env_have_target_cfg, FEATURES};
+
 impl super::BuildConfig {
     pub fn cmake(&self) {
         let mut cmk = cmake::Config::new(&self.mbedtls_src);
@@ -28,15 +30,12 @@ impl super::BuildConfig {
             cmk.define("CMAKE_C_COMPILER_FORCED", "TRUE");
         }
 
-        let target = std::env::var("TARGET").expect("TARGET environment variable should be set in build scripts");
-        // thumbv6m-none-eabi, thumbv7em-none-eabi, thumbv7em-none-eabihf, thumbv7m-none-eabi
-        // probably use arm-none-eabi-gcc which can cause the cmake compiler test to fail.
-        if target.starts_with("thumbv") && target.contains("none-eabi") {
+        if !FEATURES.have_feature("std") || env_have_target_cfg("os", "none") {
             // When building on Linux, -rdynamic flag is added automatically. Changing the
             // CMAKE_SYSTEM_NAME to Generic avoids this.
             cmk.define("CMAKE_SYSTEM_NAME", "Generic");
-            // The compiler test requires _exit which is not available. By just trying to compile
-            // a library, we can fix it.
+            // The compiler test requires symbols which may not be available. By just trying to
+            // compile a library, we can fix it.
             cmk.define("CMAKE_TRY_COMPILE_TARGET_TYPE", "STATIC_LIBRARY");
         }
 
