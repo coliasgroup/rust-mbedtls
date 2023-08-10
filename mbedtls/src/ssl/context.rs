@@ -204,7 +204,7 @@ unsafe fn set_bio_raw<IoType, T: IoCallbackUnsafe<IoType>>(ctx: *mut ssl_context
 /// any logic.
 /// Note: `bio` is a concept in common TLS implementation which refers to basic IO.
 /// openssl and mbedtls both use this concept.
-/// Ref: https://stackoverflow.com/questions/51672133/what-are-openssl-bios-how-do-they-work-how-are-bios-used-in-openssl
+/// Ref: <https://stackoverflow.com/questions/51672133/what-are-openssl-bios-how-do-they-work-how-are-bios-used-in-openssl>
 #[cfg(all(feature = "std", feature = "async"))]
 impl<T> Context<T>  {
     pub(super) fn with_bio_async<'cx, R, IoType>(&mut self, cx: &mut std::task::Context<'cx>, f: impl FnOnce(&mut Self) -> R) -> Option<R> where for<'c> (&'c mut std::task::Context<'cx>, &'c mut T): IoCallbackUnsafe<IoType> {
@@ -294,10 +294,10 @@ impl<T> Context<T> {
     ///
     /// This should only be used directly if the handshake could not be completed successfully in
     /// `establish`, i.e.:
-    /// - If using non-blocking operation and `establish` failed with [`Error::SslWantRead`] or
-    /// [`Error::SslWantWrite`]
+    /// - If using non-blocking operation and `establish` failed with [`codes::SslWantRead`] or
+    /// [`codes::SslWantWrite`]
     /// - If running a DTLS server and it answers the first `ClientHello` (without cookie) with a
-    /// `HelloVerifyRequest`, i.e. `establish` failed with [`Error::SslHelloVerifyRequired`]
+    /// `HelloVerifyRequest`, i.e. `establish` failed with [`codes::SslHelloVerifyRequired`]
     pub fn handshake(&mut self) -> Result<()> {
         match self.inner_handshake() {
             Ok(()) => Ok(()),
