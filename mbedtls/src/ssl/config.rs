@@ -123,7 +123,6 @@ define!(
     }
 );
 
-#[cfg(feature = "std")]
 callback!(DbgCallback: Fn(i32, Cow<'_, str>, i32, Cow<'_, str>) -> ());
 callback!(SniCallback: Fn(&mut HandshakeContext, &[u8]) -> Result<()>);
 callback!(CaCallback: Fn(&MbedtlsList<Certificate>) -> Result<MbedtlsList<Certificate>>);
@@ -189,7 +188,6 @@ define!(
         protocols: Option<Arc<NullTerminatedStrList>>,
         signature_algorithms: Option<Arc<Vec<u16>>>,
         verify_callback: Option<Arc<dyn VerifyCallback + 'static>>,
-        #[cfg(feature = "std")]
         dbg_callback: Option<Arc<dyn DbgCallback + 'static>>,
         sni_callback: Option<Arc<dyn SniCallback + 'static>>,
         ticket_callback: Option<Arc<dyn TicketCallback + 'static>>,
@@ -233,7 +231,6 @@ impl Config {
             protocols: None,
             signature_algorithms: None,
             verify_callback: None,
-            #[cfg(feature = "std")]
             dbg_callback: None,
             sni_callback: None,
             ticket_callback: None,
@@ -459,7 +456,6 @@ impl Config {
         unsafe { ssl_conf_ca_cb( self.into(), Some(ca_callback::<F>), &**self.ca_callback.as_mut().unwrap() as *const _ as *mut c_void) }
     }
 
-    #[cfg(feature = "std")]
     pub fn set_dbg_callback<F>(&mut self, cb: F)
     where
         F: DbgCallback + 'static,
@@ -478,12 +474,12 @@ impl Config {
             let cb = &mut *(closure as *mut F);
 
             let file = match file.is_null() {
-                false => std::ffi::CStr::from_ptr(file).to_string_lossy(),
+                false => core::ffi::CStr::from_ptr(file).to_string_lossy(),
                 true => Cow::from(""),
             };
             
             let message = match message.is_null() {
-                false => std::ffi::CStr::from_ptr(message).to_string_lossy(),
+                false => core::ffi::CStr::from_ptr(message).to_string_lossy(),
                 true => Cow::from(""),
             };
             
