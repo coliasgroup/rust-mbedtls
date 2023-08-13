@@ -29,6 +29,7 @@ pub mod self_test;
 
 #[cfg(any(feature = "spin_threading", feature = "rust_threading", sys_threading_component = "custom"))]
 #[doc(hidden)]
+#[rustfmt::skip]
 pub mod threading;
 
 #[cfg(any(feature = "force_aesni_support", target_env = "sgx"))]
