@@ -24,7 +24,6 @@ use std::{
 use mbedtls_sys::types::raw_types::{c_int, c_uchar, c_void};
 use mbedtls_sys::types::size_t;
 
-#[cfg(feature = "std")]
 use crate::error::codes;
 use crate::error::Result;
 use super::context::Context;
@@ -198,11 +197,21 @@ impl<T> Context<T> {
     /// when handling some special cases in TLS 1.3. This allows the logic to be shared in the
     /// `AsyncRead` implementation found in `mbedtls/src/ssl/async_io.rs`.
     pub(super) fn read_impl(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+        self.read_impl_inner(buf).map_err(|e| {
+            if matches!(e.high_level(), Some(codes::SslWantRead | codes::SslWantWrite)) {
+                IoErrorKind::WouldBlock.into()
+            } else {
+                crate::private::error_to_io_error(e)
+            }
+        })
+    }
+}
+
+impl<T> Context<T> {
+    pub fn read_impl_inner(&mut self, buf: &mut [u8]) -> Result<usize> {
         loop {
             match self.recv(buf) {
                 Err(e) if e.high_level() == Some(codes::SslPeerCloseNotify) => return Ok(0),
-                #[cfg(not(feature = "tls13"))]
-                Err(e) if matches!(e.high_level(), Some(codes::SslWantRead | codes::SslWantWrite)) => return Err(IoErrorKind::WouldBlock.into()),
                 #[cfg(feature = "tls13")]
                 Err(e) if e.high_level() == Some(codes::SslWantRead) => {
                     // In TLS 1.3, mbedtls delegates the responsibility of handling and
@@ -218,7 +227,7 @@ impl<T> Context<T> {
                     {
                         continue;
                     }
-                    return Err(IoErrorKind::WouldBlock.into());
+                    return Err(e);
                 }
                 // In TLS 1.3, mbedtls delegates the responsibility of handling and
                 // saving the `NewSessionTicket` to the user. When using the client mode,
@@ -230,7 +239,7 @@ impl<T> Context<T> {
                 // https://github.com/Mbed-TLS/mbedtls/issues/6640
                 #[cfg(feature = "tls13")]
                 Err(e) if e.high_level() == Some(codes::SslReceivedNewSessionTicket) => continue,
-                Err(e) => return Err(crate::private::error_to_io_error(e)),
+                Err(e) => return Err(e),
                 Ok(i) => return Ok(i),
             }
         }

@@ -205,9 +205,9 @@ unsafe fn set_bio_raw<IoType, T: IoCallbackUnsafe<IoType>>(ctx: *mut ssl_context
 /// Note: `bio` is a concept in common TLS implementation which refers to basic IO.
 /// openssl and mbedtls both use this concept.
 /// Ref: <https://stackoverflow.com/questions/51672133/what-are-openssl-bios-how-do-they-work-how-are-bios-used-in-openssl>
-#[cfg(all(feature = "std", feature = "async"))]
 impl<T> Context<T>  {
-    pub(super) fn with_bio_async<'cx, R, IoType>(&mut self, cx: &mut std::task::Context<'cx>, f: impl FnOnce(&mut Self) -> R) -> Option<R> where for<'c> (&'c mut std::task::Context<'cx>, &'c mut T): IoCallbackUnsafe<IoType> {
+    #[allow(dead_code)]
+    pub(super) fn with_bio_async<'cx, R, IoType>(&mut self, cx: &mut core::task::Context<'cx>, f: impl FnOnce(&mut Self) -> R) -> Option<R> where for<'c> (&'c mut core::task::Context<'cx>, &'c mut T): IoCallbackUnsafe<IoType> {
         let ret;
 
         struct BioGuard<'a, T> {
@@ -240,6 +240,7 @@ impl<T> Context<T>  {
     // Please check this https://github.com/Mbed-TLS/mbedtls/issues/4183 to learn more about how `mbedtls_ssl_write()` works in c-mbedtls 2.28
     // This function ultimately ensure the semantics:
     // Returned value `Ok(n)` always means n bytes of data has been sent into c-mbedtls's buffer (some of them might be sent out through underlying IO)
+    #[allow(dead_code)]
     pub(super) fn async_write(&mut self, buf: &[u8]) -> Result<usize> {
         while self.handle().private_out_left > 0 {
             self.flush_output()?;
@@ -249,7 +250,7 @@ impl<T> Context<T>  {
             // Although got `Error::SslWantWrite` means underlying IO is blocked, but some of `buf` is still saved into c-mbedtls's
             // buffer, so we need to return size of bytes that has been buffered.
             // Since we know before this call `out_left` was 0, all buffer (with in the MBEDTLS_SSL_OUT_CONTENT_LEN part) is buffered
-            Err(e) if e.high_level() == Some(codes::SslWantWrite) => Ok(std::cmp::min(unsafe { ssl_get_max_out_record_payload((&*self).into()).into_result()? as usize }, buf.len())),
+            Err(e) if e.high_level() == Some(codes::SslWantWrite) => Ok(core::cmp::min(unsafe { ssl_get_max_out_record_payload((&*self).into()).into_result()? as usize }, buf.len())),
             res => res,
         }
     }
@@ -406,6 +407,12 @@ impl<T> Context<T> {
         self.io.as_mut().map(|v| &mut **v)
     }
     
+    pub fn take_io(&mut self) -> Option<T> {
+        self.clear_bio();
+        let io = self.io.take();
+        io.map(|boxed| *boxed)
+    }
+
     /// Return the number of bytes currently available to read that
     /// are stored in the Session's internal read buffer
     pub fn bytes_available(&self) -> usize {
